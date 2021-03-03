@@ -66,8 +66,10 @@ class VeeePackage:
         }
         return pack
     def package_regist(self,mail,pwd,invate=''):
+        hl = hashlib.md5()
+        hl.update(pwd.encode('utf-8'))
         pack = {
-            'password': pwd,
+            'password': str(hl.hexdigest()),
             'user_id': mail,
             'device_id': self.device_id,
             'device_name': self.device_name,
@@ -110,10 +112,12 @@ class Veee:
         pass
     def login(self):
         pack = self.vp.package()
+        resp = None
         resp = self.session.post(self.login_url,headers = self.headers,data=pack)
         jsr = resp.json()
         # print(jsr)
         newheader = {}
+        print(jsr['message'])
         if jsr['status_code'] == 200:
             head = resp.headers
             newheader = {
@@ -137,12 +141,14 @@ class Veee:
 
 
 
-    def registerByme(self,mail,pwd):
+    def registerByme(self,mail,pwd,proxies=None):
         pack = self.vp.package_regist(mail=mail, pwd=pwd,)
-        resp = self.session.post(self.register_url, headers=self.headers, data=pack)
+        resp = self.session.post(self.register_url, headers=self.headers, data=pack,proxies=proxies)
         jsonr = resp.json()
         if jsonr['status_code'] == 200:
             return True
+        else:
+            print(jsonr['message'])
         return  False
 
 
@@ -151,34 +157,28 @@ class Veee:
         mail = self.random_mail()
         pwd ='123456'
         pack = self.vp.package_regist(mail=mail,pwd=pwd,invate=invite_code)
-        resp = self.session.post(self.register_url,headers=self.headers,data=pack,proxies=proxies)
+        resp = None
+        try:
+            resp = self.session.post(self.register_url, headers=self.headers, data=pack, proxies=proxies)
+        except:
+            print('invalid ip :'+proxies['https'])
+            return False
         jsr = resp.json()
         if jsr['status_code'] == 200:
             print('+1小时')
             return True
         else:
             if jsr['status_code'] == self.status_code_lim:
-                print('IP已达上限,正在设置代理...')
+                print('message:'+jsr['message'])
+                if proxies!=None:
+                    print('IP(+' + proxies['https'] + '+无效或已达上限,正在设置代理...')
+                else:
+                    print('本机IP已达上限...正在设置代理')
                 return False
 
 
-
-    def set_proxies(self):
-
-        ips = self.get_xila_ips()
-        proxies = {}
-        if len(ips) > 0:
-            print('代理已获取成功')
-            index = 0
-            proxies['https'] = ips[index]
-            self.register(proxies=proxies)
-            index+=1
-        else:
-            self.set_proxies()
-
-
     def random_mail(self):
-        mail = '2021'
+        mail = '2020'
         for _ in range(4):
             mail+=self.ar[random.randint(0,len(self.ar)-1)]
         mail+='@gmail.com'
@@ -236,6 +236,7 @@ def invitefor(mail,pwd,count):
     ip_index = 0
     # vee.get_user_info(nheader)
     while alcount<count:
+        ip_index = 0
         if vee.error_ag_count > vee.error_ag_max_count:
             print('多次失败')
             return
@@ -251,19 +252,23 @@ def invitefor(mail,pwd,count):
                print('代理获取成功...')
                while alcount<count:
                    vee.ips = ip
-                   proxies = {'https': vee.ips[ip_index]}
-                   result = vee.register(proxies, invite_code=invite_code)
-                   if result:
-                       alcount += 1
+                   if ip_index < len(vee.ips):
+                       proxies = {'https': vee.ips[ip_index]}
+                       result = vee.register(proxies, invite_code=invite_code)
+                       if result:
+                           alcount += 1
+                       else:
+                           ip_index += 1
                    else:
-                       ip_index += 1
+                       break
 
 
-# def login():
-#     vee = Veee('hig@gmail.com', '123456')
-#     rjson = vee.get_user_info(vee.login())
+def login(mail,pwd):
+    vee = Veee(mail, pwd)
+    vee.login()
+    # rjson = vee.get_user_info(vee.login())
 
-def regist(mail,pwd):
+def regist(mail,pwd,proxies):
     '''
     注册一个新账号
     :param mail:
@@ -271,12 +276,14 @@ def regist(mail,pwd):
     :return:
     '''
     vee = Veee('null','null')
-    if vee.registerByme(mail,pwd):
+    if vee.registerByme(mail,pwd,proxies):
         print('注册成功')
     else:
         print('注册失败')
 
 if __name__ == '__main__':
+    # vee = Veee('null','null')
+    # vee.register(proxies={'https':'150.138.253.71:808'})
     '''
     ############################
     一般情况下，如果已有账号，调用 { @method invitefor(mail,pwd,count) 方法即可
@@ -287,4 +294,6 @@ if __name__ == '__main__':
     ############################
     如执行以下方法后，再不出问题的情况下，会为 hig@gmail.com 续费2小时的时间
   '''
-    invitefor('hig@gmail.com','123456',2)
+    # regist('hib@gmail.com','123456',proxies={'https':'171.96.231.3:8080'})
+    # login()
+    invitefor('hib@gmail.com','123456',10)
